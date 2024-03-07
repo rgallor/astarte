@@ -198,11 +198,16 @@ services:
       - "--providers.docker.exposedbydefault=false"
       # Expose Astarte API/Dahsboard/Grafana
       - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
       # Expose Astarte broker
       - "--entryPoints.vernemq.address=:8883"
+      - "--entrypoints.websecure.http.tls.domains[0].main=forwarder.astarte.localhost"
+      - "--entrypoints.websecure.http.tls.domains[0].sans=forwarder.astarte.localhost"
+      - "--providers.file.filename=/var/cers/dynamic_conf.yml"
     ports:
       # The HTTP port
       - "80:80"
+      - "443:443"
       # Uncomment this if you want to display Traefik's web UI (enabled by --api.insecure=true)
       # - "8080:8080"
       # VerneMQ's SSL Listener
@@ -210,6 +215,9 @@ services:
     volumes:
       # So that Traefik can listen to the Docker events
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./forwarder.astarte.localhost.pem:/var/certs/cert.pem
+      - ./forwarder.astarte.localhost-key.pem:/var/certs/key.pem
+      - ./dynamic_conf.yaml:/var/cers/dynamic_conf.yml
     networks:
       default:
         aliases:
@@ -219,6 +227,26 @@ services:
           - dashboard.astarte.localhost
           - grafana.astarte.localhost
           - broker.astarte.localhost
+          - forwarder.astarte.localhost
+
+  forwarder:
+    build: "/home/rgwork/SECOMind/repo/edgehog_device_forwarder"
+    depends_on:
+      - "traefik"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.forwarder.rule=Host(`forwarder.astarte.localhost`)"
+      - "traefik.http.routers.forwarder.entrypoints=websecure"
+      - "traefik.http.routers.forwarder.service=forwarder"
+      - "traefik.http.services.forwarder.loadbalancer.server.port=4000"
+      - "traefik.http.routers.forwarder.tls=true"
+      - "traefik.http.routers.forwarder.tls.domains[0].main=forwarder.astarte.localhost"
+      - "traefik.http.routers.forwarder.tls.domains[0].sans=forwarder.astarte.localhost"
+      # HTTP
+      - "traefik.http.routers.forwarder2.rule=Host(`forwarder.astarte.localhost`)"
+      - "traefik.http.routers.forwarder2.entrypoints=web"
+      - "traefik.http.routers.forwarder2.service=forwarder"
+      - "traefik.http.services.forwarder2.loadbalancer.server.port=4000"
 
   # RabbitMQ
   rabbitmq:
@@ -283,6 +311,7 @@ volumes:
   scylla-data:
   vernemq-data:
   cfssl-data:
+
 
 networks:
   default:

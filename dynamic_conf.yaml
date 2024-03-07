@@ -1,0 +1,7 @@
+tls:
+  certificates:
+    - certFile: /var/certs/cert.pem
+      keyFile: /var/certs/key.pem
+log:
+  level: DEBUG
+accessLog: {}
